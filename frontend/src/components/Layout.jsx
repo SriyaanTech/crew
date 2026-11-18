@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Briefcase, Ship, CalendarRange, FileText, FileSignature, HeartPulse, Plane, ArrowRightLeft,
   Star, Wallet, GraduationCap, Bell, BarChart3, Shield, History, Settings, LogOut, Menu, Search, Anchor,
@@ -41,34 +41,42 @@ export const NAV = [
   ] },
 ]
 
-export default function Layout() {
+const CLIENT_NAV = [
+  { group: 'Overview', items: [{ to: '/client', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
+  { group: 'Crew', items: [{ to: '/client/crew', label: 'Crew Details', icon: Users }, { to: '/client/recruitment', label: 'Recruitment', icon: Briefcase, module: 'recruitment' }] },
+  { group: 'Operations', items: [{ to: '/client/vessels', label: 'Vessels', icon: Ship }, { to: '/client/crew-changes', label: 'Crew Changes', icon: CalendarRange }] },
+  { group: 'HR & Finance', items: [{ to: '/client/documents', label: 'Contracts & Documents', icon: FileSignature }, { to: '/client/payments', label: 'Crew Payments', icon: Wallet }] },
+]
+
+export default function Layout({ clientPortal = false }) {
   const { user, logout, can } = useAuth()
   const [open, setOpen] = useState(false)
   const [bell, setBell] = useState(false)
   const [q, setQ] = useState('')
   const nav = useNavigate()
-  const { notifications } = useData('notifications')
+  const { search } = useLocation()
+  const { notifications } = useData(clientPortal ? null : 'notifications')
   const unread = (notifications || []).filter((n) => !n.read && n.audience !== 'Crew').length
 
   return (
     <div className={`shell ${open ? 'nav-open' : ''}`}>
       <aside className="sidebar">
-        <Link to="/" className="brand" onClick={() => setOpen(false)}>
+        <Link to={clientPortal ? '/client' : '/'} className="brand" onClick={() => setOpen(false)}>
           <span className="brand-mark"><Anchor size={18} /></span>
           <span>
             <strong>CrewDesk</strong>
-            <small>Crew Management</small>
+            <small>{clientPortal ? 'Client Portal' : 'Crew Management'}</small>
           </span>
         </Link>
         <nav>
-          {NAV.map((g) => {
-            const items = g.items.filter((i) => can(i.module, 'view'))
+          {(clientPortal ? CLIENT_NAV : NAV).map((g) => {
+            const items = g.items.filter((i) => !i.module || can(i.module, 'view'))
             if (!items.length) return null
             return (
               <div key={g.group} className="nav-group">
                 <span className="nav-group-label">{g.group}</span>
                 {items.map((i) => (
-                  <NavLink key={i.to} to={i.to} end={i.end} className="nav-item" onClick={() => setOpen(false)}>
+                  <NavLink key={i.to} to={clientPortal ? { pathname: i.to, search } : i.to} end={i.end} className="nav-item" onClick={() => setOpen(false)}>
                     <i.icon size={17} /> <span>{i.label}</span>
                   </NavLink>
                 ))}
@@ -85,12 +93,12 @@ export default function Layout() {
       <div className="main">
         <header className="topbar">
           <button className="icon-btn mobile-only" onClick={() => setOpen(true)} aria-label="Menu"><Menu size={20} /></button>
-          <form className="search top-search" onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/crew?q=${encodeURIComponent(q.trim())}`) }}>
+          {clientPortal ? <strong>Client Portal</strong> : <form className="search top-search" onSubmit={(e) => { e.preventDefault(); if (q.trim()) nav(`/crew?q=${encodeURIComponent(q.trim())}`) }}>
             <Search size={16} />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search crew by name, ID, passport, CDC…" />
-          </form>
+          </form>}
           <div className="spacer" />
-          <div className="dropdown">
+          {!clientPortal && <div className="dropdown">
             <button className="icon-btn bell" onClick={() => setBell((b) => !b)} onBlur={() => setTimeout(() => setBell(false), 200)} aria-label="Notifications">
               <Bell size={19} />
               {unread > 0 && <span className="dot">{unread}</span>}
@@ -107,12 +115,12 @@ export default function Layout() {
                 ))}
               </div>
             )}
-          </div>
+          </div>}
           <div className="user-chip">
             <Avatar name={user?.name} size={32} />
             <span className="user-meta">
               <strong>{user?.name}</strong>
-              <small>{user?.role}</small>
+              <small>{clientPortal ? 'Client' : user?.role}</small>
             </span>
             <button className="icon-btn" title="Sign out" onClick={() => { logout(); nav('/login') }}><LogOut size={17} /></button>
           </div>

@@ -20,6 +20,30 @@ const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 export const USING_MOCK = !BASE
 
 const delay = (ms = 120) => new Promise((r) => setTimeout(r, ms))
+export const isClientAccount = (user) => user?.role === 'Client Representative'
+
+function demoClientPortal(userId) {
+  const vessels = mockStore.list('vessels').filter((vessel) => vessel.ownerUserId === userId)
+  const vesselIds = new Set(vessels.map((vessel) => vessel.id))
+  const forVessels = (resource) => mockStore.list(resource).filter((row) => vesselIds.has(row.vesselId))
+  const assignments = forVessels('assignments')
+  const payroll = forVessels('payroll')
+  const contracts = forVessels('contracts')
+  const vacancies = new Map(forVessels('vacancies').map((row) => [row.id, row]))
+  const applications = mockStore.list('applications')
+    .filter((row) => vacancies.has(row.vacancyId) && row.internalApproval === 'Approved' && ['Pending', 'Approved', 'Rejected'].includes(row.clientApproval))
+    .map((row) => {
+      const { vesselId, title, rank } = vacancies.get(row.vacancyId)
+      return { ...row, vesselId, title, rank }
+    })
+  const ids = new Set([...assignments, ...payroll, ...contracts, ...applications].map((row) => row.crewId))
+  const crew = mockStore.list('crew').filter((row) => ids.has(row.id))
+  const onboardIds = new Set(assignments.filter((row) => row.status === 'Onboard').map((row) => row.crewId))
+  const courses = new Map(mockStore.list('courses').map((row) => [row.id, row.name]))
+  const qualifications = mockStore.list('trainingRecords').filter((row) => onboardIds.has(row.crewId) && row.status === 'Completed')
+    .map(({ id, crewId, completedOn, expiryDate, courseId }) => ({ id, crewId, completedOn, expiryDate, name: courses.get(courseId) || 'Training course' }))
+  return { vessels, assignments, payroll, contracts, applications, crew, qualifications, canApprove: true }
+}
 
 function token() {
   try { return JSON.parse(sessionStorage.getItem('crewdesk_session'))?.token } catch { return null }
@@ -61,7 +85,13 @@ const remoteEmit = (r) => remoteListeners.forEach((fn) => fn(r))
 
 export const api = {
   async list(resource, query = {}) {
-    if (USING_MOCK) { await delay(); return mockStore.list(resource) }
+    if (USING_MOCK) {
+      await delay()
+      if (resource === 'vessel-owners') return mockStore.list('users')
+        .filter((user) => isClientAccount(user) && user.status === 'Active')
+        .map(({ id, name }) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+      return mockStore.list(resource)
+    }
     const qs = new URLSearchParams(query).toString()
     const data = await http('GET', `/${resource}${qs ? `?${qs}` : ''}`)
     return Array.isArray(data) ? data : data.data || data.items || []
@@ -79,13 +109,30 @@ export const api = {
     const r = await http('PATCH', `/${resource}/${id}`, patch); remoteEmit(CASCADES.includes(resource) ? '*' : resource); return r
   },
   async remove(resource, id) {
-    if (USING_MOCK) { await delay(); return mockStore.remove(resource, id) }
+    if (USING_MOCK) {
+      await delay()
+      if (resource === 'users' && mockStore.list('vessels').some((row) => row.ownerUserId === id)) throw new Error('Reassign this account’s vessels before deleting it.')
+      return mockStore.remove(resource, id)
+    }
     const r = await http('DELETE', `/${resource}/${id}`); remoteEmit(resource); return r
   },
   // POST to a custom action endpoint, e.g. api.post('/applications/APP-0001/onboard')
   async post(path, body) {
     if (USING_MOCK) throw new Error('Not available in demo mode')
     const r = await http('POST', path, body); remoteEmit('*'); return r
+  },
+  async getClientPortal(userId) {
+    return USING_MOCK ? demoClientPortal(userId) : http('GET', '/client-portal')
+  },
+  async decideClientApplication(userId, applicationId, decision) {
+    if (!USING_MOCK) return this.post(`/client-portal/applications/${encodeURIComponent(applicationId)}/decision`, { decision })
+    const row = demoClientPortal(userId).applications.find((application) => application.id === applicationId)
+    if (!row || row.status !== 'Active' || row.stage !== 'Client Approval' || row.clientApproval !== 'Pending' || !['Approved', 'Rejected'].includes(decision)) {
+      throw new Error('This application is no longer available for a decision.')
+    }
+    return mockStore.update('applications', row.id, decision === 'Approved'
+      ? { clientApproval: decision, stage: 'Selected' }
+      : { clientApproval: decision, status: 'Rejected' })
   },
   async getObject(key) {
     if (USING_MOCK) { await delay(40); return mockStore.getObject(key) }

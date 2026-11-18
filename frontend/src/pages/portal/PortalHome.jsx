@@ -3,6 +3,7 @@ import { AlertTriangle, Ship, Bell, Briefcase, FileText, Plane } from 'lucide-re
 import { Avatar, Badge, Card, KV, Stat } from '../../components/ui'
 import { useData } from '../../api/hooks'
 import { fmtDate, fullName, daysUntil, expiryStatus } from '../../utils/format'
+import PortalDocumentActions from './PortalDocumentActions'
 import { usePortal } from './usePortal'
 
 export default function PortalHome() {
@@ -47,8 +48,14 @@ export default function PortalHome() {
         </Card>
       </div>
       <Card title="Certificate expiry dates" className="mt" pad={false}>
-        <table className="simple-table"><thead><tr><th>Document</th><th>Number</th><th>Expiry</th><th>Alert</th><th>Verification</th></tr></thead>
-          <tbody>{docs.map((x) => { const e = expiryStatus(x.expiryDate); return <tr key={x.id}><td>{x.type}</td><td>{x.number}</td><td>{fmtDate(x.expiryDate)}</td><td><Badge tone={e.tone}>{e.label}</Badge></td><td><Badge>{x.status}</Badge></td></tr> })}</tbody>
+        <table className="simple-table"><thead><tr><th>Document</th><th>Number</th><th>Expiry</th><th>Alert</th><th>Verification</th><th scope="col" style={{ textAlign: 'center' }}>Actions</th></tr></thead>
+          <tbody>{docs.map((x) => {
+            const expiry = expiryStatus(x.expiryDate)
+            return (
+              <tr key={x.id}><td>{x.type}</td><td>{x.number}</td><td>{fmtDate(x.expiryDate)}</td><td><Badge tone={expiry.tone}>{expiry.label}</Badge></td><td><Badge>{x.status}</Badge></td>
+                <td><PortalDocumentActions title={x.type} fileName={x.fileName} fileUrl={x.fileUrl} /></td></tr>
+            )
+          })}</tbody>
         </table>
       </Card>
     </>

@@ -2,9 +2,10 @@ import { Badge, Card } from '../../components/ui'
 import { useData } from '../../api/hooks'
 import { isMandatory } from '../../config/training'
 import { fmtDate, expiryStatus, daysUntil } from '../../utils/format'
+import PortalDocumentActions from './PortalDocumentActions'
 import { usePortal } from './usePortal'
 
-export default function PortalTraining() {
+export default function PortalAssessment() {
   const { me, mine, courses } = usePortal()
   const { trainingRecords } = useData('trainingRecords')
   if (!me) return null
@@ -17,7 +18,10 @@ export default function PortalTraining() {
   })
   return (
     <>
-      <div className="page-head"><div><h1>Training Requirements</h1><p className="muted">Mandatory courses for your rank ({me.rank}) and your training history.</p></div></div>
+      <div className="page-head"><div><h1>Assessment</h1><p className="muted">Quizzes and mandatory training for your rank ({me.rank}).</p></div></div>
+      <Card title="Quizzes">
+        <p className="muted">No quizzes assigned.</p>
+      </Card>
       <Card title="Mandatory courses" pad={false}>
         <table className="simple-table">
           <thead><tr><th>Course</th><th>Completed</th><th>Valid until</th><th>Institute</th><th>Status</th></tr></thead>
@@ -29,8 +33,14 @@ export default function PortalTraining() {
       </Card>
       <Card title="Training history" pad={false}>
         <table className="simple-table">
-          <thead><tr><th>Course</th><th>Certificate</th><th>Completed</th><th>Expiry</th></tr></thead>
-          <tbody>{recs.map((r) => <tr key={r.id}><td>{courses.find((c) => c.id === r.courseId)?.name}</td><td>{r.certificateNo}</td><td>{fmtDate(r.completedOn)}</td><td>{fmtDate(r.expiryDate)} {r.expiryDate && <Badge tone={expiryStatus(r.expiryDate).tone}>{expiryStatus(r.expiryDate).label}</Badge>}</td></tr>)}</tbody>
+          <thead><tr><th>Course</th><th>Certificate</th><th>Completed</th><th>Expiry</th><th scope="col" style={{ textAlign: 'center' }}>Actions</th></tr></thead>
+          <tbody>{recs.map((r) => {
+            const courseName = courses.find((c) => c.id === r.courseId)?.name
+            return (
+              <tr key={r.id}><td>{courseName}</td><td>{r.certificateNo}</td><td>{fmtDate(r.completedOn)}</td><td>{fmtDate(r.expiryDate)} {r.expiryDate && <Badge tone={expiryStatus(r.expiryDate).tone}>{expiryStatus(r.expiryDate).label}</Badge>}</td>
+                <td><PortalDocumentActions title={courseName ? `${courseName} certificate` : 'Training certificate'} fileName={r.fileName} fileUrl={r.fileUrl} /></td></tr>
+            )
+          })}</tbody>
         </table>
       </Card>
     </>

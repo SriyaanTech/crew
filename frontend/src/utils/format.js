@@ -31,9 +31,9 @@ export function expiryStatus(v) {
   return { label: 'Valid', tone: 'ok', days: n }
 }
 
-export function money(v, cur = 'USD') {
+export function money(v, cur = 'USD', maximumFractionDigits = 0) {
   if (v === '' || v === null || v === undefined || isNaN(v)) return '—'
-  try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(v) } catch { return `${cur} ${Number(v).toLocaleString()}` }
+  try { return new Intl.NumberFormat('en-US', { style: 'currency', currency: cur, maximumFractionDigits }).format(v) } catch { return `${cur} ${Number(v).toLocaleString()}` }
 }
 
 export const months = (m) => {

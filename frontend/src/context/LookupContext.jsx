@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useData } from '../api/hooks'
+import { isClientAccount } from '../api/client'
 import { fullName } from '../utils/format'
 import { useAuth } from './AuthContext'
 import { Avatar } from '../components/ui'
@@ -10,7 +11,7 @@ const Ctx = createContext({})
 // App-wide id -> record maps for the master entities everything else references.
 export function LookupProvider({ children }) {
   const { user } = useAuth()
-  const res = user ? ['crew', 'vessels', 'clients', 'vacancies', 'courses'] : []
+  const res = user && !isClientAccount(user) ? ['crew', 'vessels', 'clients', 'vacancies', 'courses'] : []
   const { crew = [], vessels = [], clients = [], vacancies = [], courses = [], loading } = useData(...res)
   const value = useMemo(() => {
     const m = (l) => Object.fromEntries((l || []).map((x) => [x.id, x]))
