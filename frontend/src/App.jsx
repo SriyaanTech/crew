@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { LookupProvider } from './context/LookupContext'
 import { ToastProvider } from './components/ui'
 import Layout from './components/Layout'
+import { isClientAccount } from './api/client'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import CrewList from './pages/CrewList'
@@ -33,14 +34,16 @@ import PortalVacancies from './pages/portal/PortalVacancies'
 import PortalContracts from './pages/portal/PortalContracts'
 import PortalTravel from './pages/portal/PortalTravel'
 import PortalPayslips from './pages/portal/PortalPayslips'
-import PortalTraining from './pages/portal/PortalTraining'
+import PortalAssessment from './pages/portal/PortalTraining'
 import PortalRequests from './pages/portal/PortalRequests'
+import ClientPortal from './pages/ClientPortal'
 
 function RequireStaff({ children }) {
   const { user } = useAuth()
   const loc = useLocation()
   if (!user) return <Navigate to="/login" state={{ from: loc.pathname }} replace />
   if (user.role === 'Crew Member') return <Navigate to="/portal" replace />
+  if (isClientAccount(user)) return <Navigate to="/client" replace />
   return children
 }
 function RequireCrew({ children }) {
@@ -52,6 +55,12 @@ function RequireCrew({ children }) {
 function Guard({ module, children }) {
   const { can } = useAuth()
   return can(module, 'view') ? children : <NoAccess />
+}
+function RequireClient({ children }) {
+  const { user, can } = useAuth()
+  if (!user) return <Navigate to="/login" replace />
+  if (!isClientAccount(user)) return <Navigate to="/" replace />
+  return can('vessels', 'view') ? children : <NoAccess />
 }
 
 export default function App() {
@@ -85,6 +94,11 @@ export default function App() {
               <Route path="settings" element={<Guard module="settings"><Settings /></Guard>} />
             </Route>
 
+            <Route path="/client" element={<RequireClient><Layout clientPortal /></RequireClient>}>
+              <Route index element={<ClientPortal />} />
+              <Route path=":page" element={<ClientPortal />} />
+            </Route>
+
             <Route path="/portal" element={<RequireCrew><PortalLayout /></RequireCrew>}>
               <Route index element={<PortalHome />} />
               <Route path="profile" element={<PortalProfile />} />
@@ -93,7 +107,8 @@ export default function App() {
               <Route path="contracts" element={<PortalContracts />} />
               <Route path="travel" element={<PortalTravel />} />
               <Route path="payslips" element={<PortalPayslips />} />
-              <Route path="training" element={<PortalTraining />} />
+              <Route path="assessment" element={<PortalAssessment />} />
+              <Route path="training" element={<Navigate to="/portal/assessment" replace />} />
               <Route path="requests" element={<PortalRequests />} />
             </Route>
 

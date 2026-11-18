@@ -6,7 +6,7 @@ import { Avatar } from '../../components/ui'
 const LINKS = [
   ['/portal', 'Home', Home, true], ['/portal/profile', 'My Profile', UserCircle], ['/portal/documents', 'Documents', FileText],
   ['/portal/vacancies', 'Vacancies & Applications', Briefcase], ['/portal/contracts', 'Contracts', FileSignature], ['/portal/travel', 'Travel & Joining', Plane],
-  ['/portal/payslips', 'Salary Slips', Wallet], ['/portal/training', 'Training', GraduationCap], ['/portal/requests', 'Requests & Messages', MessageSquare],
+  ['/portal/payslips', 'Salary Slips', Wallet], ['/portal/assessment', 'Assessment', GraduationCap], ['/portal/requests', 'Requests & Messages', MessageSquare],
 ]
 
 export default function PortalLayout() {

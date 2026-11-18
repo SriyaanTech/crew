@@ -7,7 +7,7 @@ import { useData } from '../api/hooks'
 import { api } from '../api/client'
 import { CrewCell, useLookups } from '../context/LookupContext'
 import { useAuth } from '../context/AuthContext'
-import { VESSEL_FIELDS } from './Vessels'
+import { useVesselFields } from './Vessels'
 import { fmtDate, expiryStatus } from '../utils/format'
 import { ALL_RANKS } from '../config/constants'
 
@@ -22,6 +22,7 @@ export default function VesselDetail() {
   const [editing, setEditing] = useState(false)
   const [manning, setManning] = useState(null)
   const [docForm, setDocForm] = useState(false)
+  const fields = useVesselFields()
   if (!v) return <p className="muted">Loading vessel…</p>
 
   const asg = assignments.filter((a) => a.vesselId === id)
@@ -106,8 +107,8 @@ export default function VesselDetail() {
         </Card>
       )}
 
-      <FormModal open={editing} title={`Edit ${v.name}`} fields={VESSEL_FIELDS} initial={v} onClose={() => setEditing(false)} onSubmit={async (val) => { await api.update('vessels', v.id, val); toast('Vessel updated') }} />
-      <FormModal open={docForm} title="Add vessel document" width={560} fields={[{ name: 'name', label: 'Document name', required: true, span: 3 }, { name: 'expiry', label: 'Expiry date', type: 'date' }, { name: 'fileName', label: 'File', type: 'file', span: 2 }]}
+      <FormModal open={editing} title={`Edit ${v.name}`} fields={fields} initial={v} onClose={() => setEditing(false)} onSubmit={async (val) => { await api.update('vessels', v.id, val); toast('Vessel updated') }} />
+      <FormModal open={docForm} title="Add vessel document" width={560} fields={[{ name: 'name', label: 'Document name', required: true, span: 3 }, { name: 'expiry', label: 'Expiry date', type: 'date' }, { name: 'fileName', label: 'File', type: 'file', urlField: 'fileUrl', span: 2 }]}
         onClose={() => setDocForm(false)} onSubmit={async (d) => { await api.update('vessels', v.id, { documents: [...(v.documents || []), d] }); toast('Document added') }} />
     </>
   )

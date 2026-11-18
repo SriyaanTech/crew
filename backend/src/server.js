@@ -10,6 +10,7 @@ import multer from 'multer'
 import { pool } from './db.js'
 import { authRouter, requireAuth } from './auth.js'
 import { crudRouter, actionRouter } from './crud.js'
+import { clientPortalRouter, isClientAccount } from './clientPortal.js'
 import { getConfig, setConfig, can, CONFIG_KEYS } from './config.js'
 import { audit } from './audit.js'
 
@@ -37,6 +38,12 @@ app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '1d', index: false }))
 
 // ---- authenticated ----
 app.use('/api', requireAuth)
+app.use('/api', clientPortalRouter)
+app.use('/api', (req, res, next) => {
+  const configRead = req.method === 'GET' && /^\/config\/(permissions|settings)\/?$/.test(req.path)
+  if (isClientAccount(req.user) && !configRead) return res.status(403).json({ error: 'Use the client portal to access your records.' })
+  next()
+})
 
 const upload = multer({
   storage: multer.diskStorage({

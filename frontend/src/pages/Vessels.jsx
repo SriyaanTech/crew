@@ -3,14 +3,14 @@ import ResourcePage from '../components/ResourcePage'
 import { Badge, Progress } from '../components/ui'
 import { useData } from '../api/hooks'
 import { useLookups } from '../context/LookupContext'
+import { useAuth } from '../context/AuthContext'
 import { VESSEL_STATUS, VESSEL_TYPES, TRADING_AREAS, RANKS } from '../config/constants'
 
-export const VESSEL_FIELDS = [
+const VESSEL_FIELDS = [
   { name: 'name', label: 'Vessel name', required: true },
   { name: 'imo', label: 'IMO number', required: true, hint: '7 digits' },
   { name: 'type', label: 'Vessel type', type: 'select', options: VESSEL_TYPES, required: true },
   { name: 'flag', label: 'Flag', required: true },
-  { name: 'owner', label: 'Owner' },
   { name: 'clientId', label: 'Ship manager / client', type: 'client', effect: (v, refs) => ({ manager: refs.clients.find((c) => c.id === v.clientId)?.name || '' }) },
   { name: 'grt', label: 'Gross tonnage (GT)', type: 'number' },
   { name: 'dwt', label: 'Deadweight (DWT)', type: 'number' },
@@ -19,19 +19,37 @@ export const VESSEL_FIELDS = [
   { name: 'status', label: 'Operational status', type: 'select', options: VESSEL_STATUS, default: 'In Service' },
 ]
 
+export function useVesselFields() {
+  const { can } = useAuth()
+  const { 'vessel-owners': owners = [] } = useData(can('vessels', 'create') || can('vessels', 'edit') ? 'vessel-owners' : null)
+  const options = owners.map(({ id, name }) => ({ value: id, label: name }))
+  const ownerField = {
+    name: 'ownerUserId', label: 'Owner', type: 'select',
+    options: (values) => values.ownerUserId && !options.some((option) => option.value === values.ownerUserId)
+      ? [{ value: values.ownerUserId, label: values.owner || values.ownerUserId }, ...options] : options,
+    effect: (values) => ({ owner: owners.find((owner) => owner.id === values.ownerUserId)?.name || '' }),
+  }
+  return [...VESSEL_FIELDS.slice(0, 4), ownerField, ...VESSEL_FIELDS.slice(4)]
+}
+
 export const DEFAULT_MANNING = RANKS.flatMap((d) => d.ranks).filter((r) => !r.includes('Cadet') && r !== 'Second Cook' && r !== 'Messman').map((rank) => ({ rank, required: ['Able Seaman'].includes(rank) ? 3 : rank === 'Oiler' ? 2 : 1 }))
 
 export default function Vessels() {
   const nav = useNavigate()
   const { assignments } = useData('assignments')
   const { clientName } = useLookups()
+  const fields = useVesselFields()
   const onboard = (id) => assignments.filter((a) => a.vesselId === id && a.status === 'Onboard').length
   const req = (v) => (v.manning || []).reduce((s, r) => s + Number(r.required || 0), 0)
   return (
     <ResourcePage resource="vessels" module="vessels" title="Vessel Management" subtitle="Vessel master, manning requirements, documents and crew history."
-      createLabel="Add Vessel" formTitle="New vessel" exportTitle="Vessel Master" fields={VESSEL_FIELDS} onRowClick={(r) => nav(`/vessels/${r.id}`)}
+      createLabel="Add Vessel" formTitle="New vessel" exportTitle="Vessel Master" fields={fields} onRowClick={(r) => nav(`/vessels/${r.id}`)}
       beforeSave={(v, isEdit) => (isEdit ? v : { ...v, manning: DEFAULT_MANNING, documents: [] })}
-      validate={(v) => (!/^\d{7}$/.test(String(v.imo)) ? 'IMO number must be 7 digits' : null)}
+      validate={(v) => {
+        if (!/^\d{7}$/.test(String(v.imo))) return 'IMO number must be 7 digits'
+        if (!v.id && !v.ownerUserId) return 'Select an owner'
+        return null
+      }}
       filters={[{ key: 'type', label: 'Type', options: VESSEL_TYPES }, { key: 'status', label: 'Status', options: VESSEL_STATUS }, { key: 'flag', label: 'Flag', options: ['Panama', 'Liberia', 'Marshall Islands', 'Singapore', 'India', 'Malta', 'Bahamas', 'Hong Kong'] }]}
       columns={[
         { key: 'name', label: 'Vessel', render: (r) => <><strong>{r.name}</strong><br /><small className="muted">IMO {r.imo}</small></> },

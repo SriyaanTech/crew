@@ -9,6 +9,7 @@ import { audit } from './audit.js'
 import { HOOKS, onboardApplication } from './hooks.js'
 import { listRecords, getRecord, insertRecord, updateRecord, deleteRecord, col } from './records.js'
 import { passwordProblem } from './auth.js'
+import { checkOwnerBeforeDelete, setVesselOwner } from './clientPortal.js'
 
 export const crudRouter = Router()
 
@@ -128,6 +129,7 @@ crudRouter.post('/:resource', async (req, res) => {
   if (name === 'users') data.status = data.status || 'Active'
 
   const rec = await withTx(async (db) => {
+    if (name === 'vessels') await setVesselOwner(db, data)
     const msg = await HOOKS[name]?.validate?.(db, data, null)
     if (msg) throw http(409, msg)
     const created = await insertRecord(db, name, data)
@@ -165,6 +167,7 @@ crudRouter.patch('/:resource/:id', async (req, res) => {
   if (name === 'users' && id === user.id && patch.status && patch.status !== 'Active') throw http(400, 'You cannot suspend your own account')
 
   const rec = await withTx(async (db) => {
+    if (name === 'vessels') await setVesselOwner(db, patch, before)
     const msg = await HOOKS[name]?.validate?.(db, { ...patch, id }, before)
     if (msg) throw http(409, msg)
     const updated = await updateRecord(db, name, id, patch)
@@ -183,7 +186,10 @@ crudRouter.delete('/:resource/:id', async (req, res) => {
   if (isCrew(req.user)) throw http(403, 'Not available in the crew portal')
   await requireStaff(req.user, r.module, 'delete')
   if (name === 'users' && req.params.id === req.user.id) throw http(400, 'You cannot delete your own account')
-  const ok = await deleteRecord(pool, name, req.params.id)
+  const ok = name === 'users' ? await withTx(async (db) => {
+    await checkOwnerBeforeDelete(db, req.params.id)
+    return deleteRecord(db, name, req.params.id)
+  }) : await deleteRecord(pool, name, req.params.id)
   if (!ok) throw http(404, 'Not found')
   await audit(req.user, 'DELETE', name, req.params.id)
   res.status(204).end()
